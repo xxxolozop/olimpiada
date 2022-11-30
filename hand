@@ -1,0 +1,116 @@
+using System.Collections.Generic;
+using UnityEngine;
+using Valve.VR;
+
+public class VrSimulatorHandFixer156 : SteamVR_Behaviour_Pose
+{
+    Valve.VR.InteractionSystem.Hand _hand;
+    protected override void Start()
+    {
+
+        base.Start();
+        _hand = this.gameObject.GetComponent<Valve.VR.InteractionSystem.Hand>();
+        _hand.handType = SteamVR_Input_Sources.RightHand;
+
+            GameObject broHand = GameObject.Instantiate(_hand.gameObject);
+            Destroy(broHand.GetComponent<VrSimulatorHandFixer156>());
+            broHand.SetActive(false);
+        _hand.otherHand = broHand.GetComponent<Valve.VR.InteractionSystem.Hand>();
+        _hand.otherHand.handType = SteamVR_Input_Sources.LeftHand;
+
+        var spoofMouse = new SpoofMouseAction();
+        _hand.grabGripAction = spoofMouse;
+        spoofMouse.InitializeDictionariesExposed(_hand.handType);
+
+        this.poseAction = new Poser_SteamVR_Action_Pose();
+    }
+
+    protected override void OnEnable()
+    {
+
+    }
+
+    protected override void Update()
+    {
+        _hand.grabGripAction.UpdateValue(SteamVR_Input_Sources.RightHand);
+    }
+
+    protected override void OnDisable()
+    {
+    }
+
+    protected override void CheckDeviceIndex()
+    {
+    }
+
+    //----------------------------------------------------------------------------------------------
+    class SpoofMouseAction : SteamVR_Action_Boolean
+    {
+        public SpoofMouseAction()
+        {
+
+        }
+
+        public void InitializeDictionariesExposed(SteamVR_Input_Sources source)
+        {
+            try
+            {
+                InitializeDictionaries(source);
+            }
+            catch(System.Exception e)
+            {
+            }
+        }
+
+        protected override void InitializeDictionaries(SteamVR_Input_Sources source)
+        {
+            base.InitializeDictionaries(source);
+
+            onStateDown.Add(source, null);
+            onStateUp.Add(source, null);
+            actionData.Add(source, new InputDigitalActionData_t());
+            lastActionData.Add(source, new InputDigitalActionData_t());
+        }
+
+        public override void UpdateValue(SteamVR_Input_Sources inputSource)
+        {
+            lastActionData[inputSource] = actionData[inputSource];
+            tempActionData.bState = Input.GetMouseButton(0) || Input.GetMouseButtonDown(0);
+            tempActionData.bChanged = Input.GetMouseButtonDown(0) || Input.GetMouseButtonUp(0);
+            tempActionData.bActive = true;
+            //tempActionData.fUpdateTime
+            //tempActionData.act
+
+            actionData[inputSource] = tempActionData;
+            changed[inputSource] = tempActionData.bChanged;
+            active[inputSource] = tempActionData.bActive;
+            activeOrigin[inputSource] = tempActionData.activeOrigin;
+            updateTime[inputSource] = Time.time;// tempActionData.fUpdateTime;
+
+            if (changed[inputSource])
+                lastChanged[inputSource] = Time.time;
+
+            if (onStateDown[inputSource] != null && GetStateDown(inputSource))
+                onStateDown[inputSource].Invoke(this);
+
+            if (onStateUp[inputSource] != null && GetStateUp(inputSource))
+                onStateUp[inputSource].Invoke(this);
+
+            if (onChange[inputSource] != null && GetChanged(inputSource))
+                onChange[inputSource].Invoke(this);
+
+            if (onUpdate[inputSource] != null)
+                onUpdate[inputSource].Invoke(this);
+
+            if (onActiveChange[inputSource] != null && lastActionData[inputSource].bActive != active[inputSource])
+                onActiveChange[inputSource].Invoke(this, active[inputSource]);
+        }
+    }
+        class Poser_SteamVR_Action_Pose : SteamVR_Action_Pose
+    {
+        public override bool GetActive(SteamVR_Input_Sources inputSource)
+        {
+            return false;
+        }
+    }   
+}
